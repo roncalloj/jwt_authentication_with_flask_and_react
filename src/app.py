@@ -7,10 +7,15 @@ from flask_migrate import Migrate
 from flask_swagger import swagger
 from flask_cors import CORS
 from api.utils import APIException, generate_sitemap
-from api.models import db
+from api.models import db, TokenBlockedList
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
+
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from datetime import timedelta
 
 #from models import Person
 
@@ -18,6 +23,23 @@ ENV = os.getenv("FLASK_ENV")
 static_file_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../public/')
 app = Flask(__name__)
 app.url_map.strict_slashes = False
+
+#Configuracion de JWT
+app.config["JWT_SECRET_KEY"] = os.getenv("FLASK_APP_KEY")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_HOURS")))
+app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES_DAYS")))
+jwt = JWTManager(app)
+@jwt.token_in_blocklist_loader
+def check_blocked_tokens(jwt_header,jwt_payload) -> bool:
+    tokenBlocked = TokenBlockedList.query.filter_by(token=jwt_payload["jti"]).first()
+    if isinstance(tokenBlocked, TokenBlockedList):
+        return True
+    else:
+        return False
+
+#Conofiguracion de BCrypt
+bcrypt = Bcrypt(app)
+
 
 # database condiguration
 db_url = os.getenv("DATABASE_URL")
