@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, TokenBlockedList
 from api.utils import generate_sitemap, APIException
 
-from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt, get_jti
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from datetime import date, time, datetime, timezone
@@ -55,13 +55,14 @@ def login():
         return jsonify({"message":"Wrong email or password"}), 401
     
     access_token = create_access_token(identity=user.id, additional_claims={"role":"admin"})
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token_jti = get_jti(access_token)
+    refresh_token = create_refresh_token(identity=user.id, additional_claims={"access_token":access_token_jti,"role":"admin"})
     return jsonify({"token":access_token, "refresh_token":refresh_token}), 200
 
 @api.route('/hellosecure', methods=['GET'])
 @jwt_required()
 def handle_hello_secure():
-    claims = get_jwt()
+    claims=get_jwt()   
     user = User.query.get(get_jwt_identity())
     response_body = {
         "message": "Hello! I'm a message that came from the RESTRICTED backend, check the network tab on the google inspector and you will see the GET request",
@@ -75,8 +76,21 @@ def handle_hello_secure():
 @api.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh ():
-    identity = get_jwt_identity()
-    access_token = create_access_token(identity=identity, additional_claims={"role":"admin"})
+    claims=get_jwt()
+    access_token = claims["accessToken"]
+    refresh_token = claims["jti"]
+    role=claims['role']
+    nowdate = datetime.now(timezone.utc)
+    id=get_jwt_identity()
+    accessTokenBlocked = TokenBlockedList(token=access_token, created_at=nowdate, email=get_jwt_identity())
+    refreshTokenBlocked = TokenBlockedList(token=refresh_token, created_at=nowdate, email=get_jwt_identity())
+    db.session.add(accessTokenBlocked)
+    db.session.add(refreshTokenBlocked)
+    db.session.commit()
+
+    access_token = create_access_token(identity=id, additional_claims={"role":role})
+    access_token_jti = get_jti(access_token)
+    refresh_token = create_refresh_token(identity=id, additional_claims={"accessToken":access_token_jti, "role":role})
     return jsonify(access_token=access_token)
 
 @api.route('/logout', methods=['POST'])
