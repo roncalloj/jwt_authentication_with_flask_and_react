@@ -4,7 +4,7 @@ import "../../styles/home.css";
 
 export const Login = () => {
   const { store, actions } = useContext(Context);
-
+  //Test text
   /*    const fetchGenerico = async (endpoint, data, metodo) => {
            let url = process.env.URL_BACKEND
            let response = await fetch(url + endpoint, {
