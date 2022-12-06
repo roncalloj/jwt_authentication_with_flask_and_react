@@ -11,6 +11,9 @@
 		"source.fixAll": true,
 		"source.sortImports": true
 	},
+	"[python]": { "editor.defaultFormatter": null },
+	"python.formatting.provider": "black",
+	"python.formatting.blackArgs": ["--line-length", "120"],
 	"[css]": {
 		"editor.suggest.insertMode": "replace"
 	},
